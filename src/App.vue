@@ -42,7 +42,7 @@ const onPositionChange = async () => {
 }
 
 const toggleAutoStart = async () => {
-    autostart.value = await window.api?.setAutoStart(autostart.value)
+    autostart.value = await window.api?.setAutoStart(!autostart.value)
     flashSaved()
 }
 
