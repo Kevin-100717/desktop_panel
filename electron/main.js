@@ -214,6 +214,11 @@ ipcMain.handle('weather:get', async () => {
     await fetchWeather()
     return weatherCache
 })
+ipcMain.handle('autostart:get', () => app.getLoginItemSettings().openAtLogin)
+ipcMain.handle('autostart:set', (_e, enabled) => {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+    return app.getLoginItemSettings().openAtLogin
+})
 
 app.whenReady().then(() => {
     session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {

@@ -5,6 +5,7 @@ const apiKey = ref('')
 const position = ref('center')
 const saved = ref(false)
 const saving = ref(false)
+const autostart = ref(false)
 const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true })
 const components = [
     { key: 'clock', label: '时钟' },
@@ -18,6 +19,7 @@ onMounted(async () => {
     const config = await window.api?.getConfig()
     apiKey.value = config?.apiKey || ''
     position.value = config?.position || 'center'
+    autostart.value = await window.api?.getAutoStart() || false
     comp.value = { ...comp.value, ...(config?.components || {}) }
 })
 
@@ -36,6 +38,11 @@ const toggleComp = async (key) => {
 
 const onPositionChange = async () => {
     await window.api?.saveConfig({ position: position.value })
+    flashSaved()
+}
+
+const toggleAutoStart = async () => {
+    autostart.value = await window.api?.setAutoStart(autostart.value)
     flashSaved()
 }
 
@@ -64,6 +71,13 @@ const flashSaved = () => {
         <option value="bottom-right">右下</option>
       </select>
       <span class="pos-hint">角落模式窗口 500×300，UI 等比缩放</span>
+    </div>
+    <div class="group">
+      <h2>常规</h2>
+      <div class="comp-row">
+        <span class="comp-name">开机自启动</span>
+        <button class="toggle" :class="{ on: autostart }" @click="toggleAutoStart"></button>
+      </div>
     </div>
     <div class="group">
       <h2>组件</h2>
