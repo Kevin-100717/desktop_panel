@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, screen, nativeImage, ipcMain, desktopCapturer, session } = require('electron')
 const { join } = require('path')
 const { readFileSync, writeFileSync } = require('fs')
+const os = require('os')
 const win32 = require('./win32')
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
@@ -27,7 +28,8 @@ const configPath = join(app.getPath('userData'), 'config.json')
 const defaultConfig = {
     apiKey: '',
     position: 'center',
-    components: { clock: true, date: true, week: true, weather: true, spectrum: true }
+    spectrumStyle: 'bars',
+    components: { clock: true, date: true, week: true, weather: true, spectrum: true, perf: true }
 }
 let config = JSON.parse(JSON.stringify(defaultConfig))
 try {
@@ -139,7 +141,7 @@ const createWidgetWindow = () => {
         win32.registerOverlay(widgetWin)
         ensureTimer = setInterval(() => win32.ensureWallpaper(widgetWin), 5000)
         fetchWeather()
-        weatherTimer = setInterval(fetchWeather, 10 * 60 * 1000)
+        weatherTimer = setInterval(fetchWeather, 30 * 60 * 1000)
     }
     widgetWin.webContents.once('did-finish-load', showWidget)
     widgetWin.once('ready-to-show', showWidget)
@@ -219,6 +221,30 @@ ipcMain.handle('autostart:set', (_e, enabled) => {
     app.setLoginItemSettings({ openAtLogin: enabled })
     return app.getLoginItemSettings().openAtLogin
 })
+
+let prevCpu = null
+const getCpuUsage = () => {
+    const cpus = os.cpus()
+    let idle = 0
+    let total = 0
+    for (const c of cpus) {
+        idle += c.times.idle
+        total += c.times.user + c.times.nice + c.times.sys + c.times.idle + c.times.irq
+    }
+    if (!prevCpu) {
+        prevCpu = { idle, total }
+        return 0
+    }
+    const dIdle = idle - prevCpu.idle
+    const dTotal = total - prevCpu.total
+    prevCpu = { idle, total }
+    if (dTotal <= 0) return 0
+    return Math.max(0, Math.min(100, Math.round((1 - dIdle / dTotal) * 100)))
+}
+ipcMain.handle('stats:get', () => ({
+    cpu: getCpuUsage(),
+    mem: Math.round((1 - os.freemem() / os.totalmem()) * 100)
+}))
 
 app.whenReady().then(() => {
     session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {

@@ -6,13 +6,15 @@ const position = ref('center')
 const saved = ref(false)
 const saving = ref(false)
 const autostart = ref(false)
-const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true })
+const spectrumStyle = ref('bars')
+const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true, perf: true })
 const components = [
     { key: 'clock', label: '时钟' },
     { key: 'date', label: '日期' },
     { key: 'week', label: '星期' },
     { key: 'weather', label: '天气' },
-    { key: 'spectrum', label: '音频频谱' }
+    { key: 'spectrum', label: '音频频谱' },
+    { key: 'perf', label: 'CPU/内存' }
 ]
 
 onMounted(async () => {
@@ -20,6 +22,7 @@ onMounted(async () => {
     apiKey.value = config?.apiKey || ''
     position.value = config?.position || 'center'
     autostart.value = await window.api?.getAutoStart() || false
+    spectrumStyle.value = config?.spectrumStyle || 'bars'
     comp.value = { ...comp.value, ...(config?.components || {}) }
 })
 
@@ -43,6 +46,11 @@ const onPositionChange = async () => {
 
 const toggleAutoStart = async () => {
     autostart.value = await window.api?.setAutoStart(!autostart.value)
+    flashSaved()
+}
+
+const onSpectrumStyleChange = async () => {
+    await window.api?.saveConfig({ spectrumStyle: spectrumStyle.value })
     flashSaved()
 }
 
@@ -77,6 +85,24 @@ const flashSaved = () => {
       <div class="comp-row">
         <span class="comp-name">开机自启动</span>
         <button class="toggle" :class="{ on: autostart }" @click="toggleAutoStart"></button>
+      </div>
+    </div>
+    <div class="group">
+      <h2>频谱</h2>
+      <div class="comp-row">
+        <span class="comp-name">频谱样式</span>
+        <select v-model="spectrumStyle" @change="onSpectrumStyleChange">
+          <option value="bars">基础柱条</option>
+          <option value="mirror">音频条（上下扩展）</option>
+          <option value="line">波形线</option>
+          <option value="ring">圆环柱</option>
+          <option value="dots">圆点环绕</option>
+          <option value="pulse">脉冲同心圆</option>
+          <!-- <option value="waterfall">瀑布流</option> -->
+          <option value="stars">星际粒子</option>
+          <option value="radar">雷达多边形</option>
+          <option value="strings">琴弦震动</option>
+        </select>
       </div>
     </div>
     <div class="group">

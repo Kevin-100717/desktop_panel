@@ -5,8 +5,9 @@ import DateWidget from './components/DateWidget.vue'
 import WeekWidget from './components/WeekWidget.vue'
 import WeatherWidget from './components/WeatherWidget.vue'
 import SpectrumWidget from './components/SpectrumWidget.vue'
+import PerfWidget from './components/PerfWidget.vue'
 
-const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true })
+const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true, perf: true })
 const corner = ref(false)
 
 onMounted(async () => {
@@ -24,10 +25,11 @@ onMounted(async () => {
         <DateWidget v-if="comp.date" />
         <WeekWidget v-if="comp.week" />
       </div>
-      <div v-if="comp.weather || comp.spectrum" class="bottom-row">
-        <WeatherWidget v-if="comp.weather" />
-        <SpectrumWidget v-if="comp.spectrum" />
-      </div>
+    <div v-if="comp.weather || comp.spectrum || comp.perf" class="bottom-row">
+      <WeatherWidget v-if="comp.weather" />
+      <SpectrumWidget v-if="comp.spectrum" />
+      <PerfWidget v-if="comp.perf" />
+    </div>
     </div>
   </div>
 </template>
