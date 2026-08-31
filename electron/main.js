@@ -1,10 +1,14 @@
 const { app, BrowserWindow, Tray, Menu, screen, nativeImage, ipcMain, desktopCapturer, session, dialog } = require('electron')
 const { join } = require('path')
 const { readFileSync, writeFileSync } = require('fs')
-const { execSync } = require('child_process')
 const os = require('os')
-const si = require('systeminformation')
 const win32 = require('./win32')
+
+ipcMain.handle('autostart:get', () => app.getLoginItemSettings().openAtLogin)
+ipcMain.handle('autostart:set', (_e, enabled) => {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+    return app.getLoginItemSettings().openAtLogin
+})
 
 let autoUpdater = null
 let checkingFromSettings = false
@@ -328,33 +332,6 @@ ipcMain.handle('weather:get', async () => {
     await fetchWeather()
     return weatherCache
 })
-const AUTOSTART_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
-const AUTOSTART_NAME = 'DesktopPanel'
-
-const getAutostart = () => {
-    try {
-        const out = execSync(`reg query "${AUTOSTART_KEY}" /v "${AUTOSTART_NAME}"`, { encoding: 'utf-8', windowsHide: true })
-        return out.includes(AUTOSTART_NAME)
-    } catch {
-        return false
-    }
-}
-
-const setAutostart = (enabled) => {
-    try {
-        if (enabled) {
-            execSync(`reg add "${AUTOSTART_KEY}" /v "${AUTOSTART_NAME}" /t REG_SZ /d "${process.execPath}" /f`, { windowsHide: true })
-        } else {
-            execSync(`reg delete "${AUTOSTART_KEY}" /v "${AUTOSTART_NAME}" /f`, { windowsHide: true })
-        }
-        return getAutostart()
-    } catch {
-        return false
-    }
-}
-
-ipcMain.handle('autostart:get', () => getAutostart())
-ipcMain.handle('autostart:set', (_e, enabled) => setAutostart(enabled))
 
 let prevCpu = null
 const getCpuUsage = () => {
@@ -376,25 +353,9 @@ const getCpuUsage = () => {
     return Math.max(0, Math.min(100, Math.round((1 - dIdle / dTotal) * 100)))
 }
 
-let cachedTemp = 0
-let lastTempTime = 0
-const getCpuTemp = async () => {
-    const now = Date.now()
-    if (now - lastTempTime < 10000) return cachedTemp
-    lastTempTime = now
-    try {
-        const temp = await si.cpuTemperature()
-        cachedTemp = Math.round(temp.main || 0)
-    } catch {
-        cachedTemp = 0
-    }
-    return cachedTemp
-}
-
-ipcMain.handle('stats:get', async () => ({
+ipcMain.handle('stats:get', () => ({
     cpu: getCpuUsage(),
-    mem: Math.round((1 - os.freemem() / os.totalmem()) * 100),
-    temp: await getCpuTemp()
+    mem: Math.round((1 - os.freemem() / os.totalmem()) * 100)
 }))
 
 ipcMain.handle('update:check', () => {

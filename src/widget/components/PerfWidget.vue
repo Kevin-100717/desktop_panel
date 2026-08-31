@@ -4,7 +4,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 const canvasRef = ref(null)
 let ctx = null
 let timer = null
-const data = ref({ cpu: 0, mem: 0, temp: 0 })
+const data = ref({ cpu: 0, mem: 0 })
 
 const drawGauge = (cx, cy, r, v, label, suffix = '%') => {
     const start = Math.PI * 0.75
@@ -36,13 +36,12 @@ const draw = () => {
     if (!canvas) return
     if (!ctx) ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    drawGauge(35, 38, 22, data.value.cpu / 100, 'CPU')
-    drawGauge(100, 38, 22, data.value.mem / 100, '内存')
-    drawGauge(165, 38, 22, Math.min(data.value.temp, 100) / 100, '温度', '°C')
+    drawGauge(55, 38, 24, data.value.cpu / 100, 'CPU')
+    drawGauge(145, 38, 24, data.value.mem / 100, '内存')
 }
 
 const refresh = async () => {
-    data.value = (await window.api?.getStats()) || { cpu: 0, mem: 0, temp: 0 }
+    data.value = (await window.api?.getStats()) || { cpu: 0, mem: 0 }
     draw()
 }
 

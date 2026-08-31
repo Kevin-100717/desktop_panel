@@ -1,7 +1,7 @@
 {
   "name": "desktop-panel",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "commonjs",
   "main": "electron/main.js",
   "scripts": {
@@ -17,7 +17,6 @@
     "koffi": "^3.1.5",
     "nodemon": "^3.1.14",
     "npm-run-all": "^4.1.5",
-    "systeminformation": "^5.33.6",
     "vue": "^3.5.40"
   },
   "devDependencies": {
@@ -56,7 +55,6 @@
     },
     "win": {
       "icon": "./electron/log.ico",
-      "requestedExecutionLevel": "requireAdministrator",
       "target": [
         {
           "target": "nsis",
