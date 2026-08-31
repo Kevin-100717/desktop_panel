@@ -54,5 +54,13 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <canvas ref="canvasRef" width="210" height="80" style="display:block"></canvas>
+  <canvas ref="canvasRef" width="210" height="80"></canvas>
 </template>
+
+<style scoped>
+canvas {
+  width: 210px;
+  height: 80px;
+  display: block;
+}
+</style>
