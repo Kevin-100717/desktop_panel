@@ -4,9 +4,9 @@ import { onMounted, onUnmounted, ref } from 'vue'
 const canvasRef = ref(null)
 let ctx = null
 let timer = null
-const data = ref({ cpu: 0, mem: 0 })
+const data = ref({ cpu: 0, mem: 0, temp: 0 })
 
-const drawGauge = (cx, cy, r, v, label) => {
+const drawGauge = (cx, cy, r, v, label, suffix = '%') => {
     const start = Math.PI * 0.75
     const sweep = Math.PI * 1.5
     ctx.lineWidth = 4
@@ -25,7 +25,7 @@ const drawGauge = (cx, cy, r, v, label) => {
     ctx.font = 'bold 16px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`${Math.round(v * 100)}%`, cx, cy + 2)
+    ctx.fillText(`${Math.round(v * 100)}${suffix}`, cx, cy + 2)
     ctx.fillStyle = 'rgba(255,255,255,0.55)'
     ctx.font = '10px sans-serif'
     ctx.fillText(label, cx, cy + 20)
@@ -36,12 +36,13 @@ const draw = () => {
     if (!canvas) return
     if (!ctx) ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    drawGauge(35, 32, 24, data.value.cpu / 100, 'CPU')
-    drawGauge(105, 32, 24, data.value.mem / 100, '内存')
+    drawGauge(35, 38, 24, data.value.cpu / 100, 'CPU')
+    drawGauge(105, 38, 24, data.value.mem / 100, '内存')
+    drawGauge(175, 38, 24, Math.min(data.value.temp, 100) / 100, '温度', '°C')
 }
 
 const refresh = async () => {
-    data.value = (await window.api?.getStats()) || { cpu: 0, mem: 0 }
+    data.value = (await window.api?.getStats()) || { cpu: 0, mem: 0, temp: 0 }
     draw()
 }
 
@@ -53,5 +54,5 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <canvas ref="canvasRef" width="140" height="70"></canvas>
+  <canvas ref="canvasRef" width="210" height="80"></canvas>
 </template>

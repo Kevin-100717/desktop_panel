@@ -1,8 +1,16 @@
-const { app, BrowserWindow, Tray, Menu, screen, nativeImage, ipcMain, desktopCapturer, session } = require('electron')
+const { app, BrowserWindow, Tray, Menu, screen, nativeImage, ipcMain, desktopCapturer, session, dialog } = require('electron')
 const { join } = require('path')
 const { readFileSync, writeFileSync } = require('fs')
 const os = require('os')
+const si = require('systeminformation')
 const win32 = require('./win32')
+
+let autoUpdater = null
+try {
+    if (app.isPackaged) {
+        autoUpdater = require('electron-updater').autoUpdater
+    }
+} catch {}
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
@@ -86,6 +94,60 @@ const applyWidgetPosition = () => {
     }
     if (pos === 'bottom-left') y = wa.y + wa.height - H
     widgetWin.setPosition(x, y)
+}
+
+const checkForUpdates = () => {
+    if (!autoUpdater) return
+    autoUpdater.checkForUpdates().catch(() => {})
+}
+
+if (autoUpdater) {
+    autoUpdater.on('update-available', async (info) => {
+        const { response } = await dialog.showMessageBox({
+            type: 'info',
+            title: '检查更新',
+            message: `发现新版本 v${info.version}`,
+            detail: '是否立即下载更新？',
+            buttons: ['立即更新', '稍后'],
+            defaultId: 0,
+            cancelId: 1
+        })
+        if (response === 0) {
+            autoUpdater.downloadUpdate()
+        }
+    })
+
+    autoUpdater.on('download-progress', (info) => {
+        if (widgetWin && !widgetWin.isDestroyed()) {
+            widgetWin.setProgressBar(info.percent / 100)
+        }
+        if (settingsWin && !settingsWin.isDestroyed()) {
+            settingsWin.setProgressBar(info.percent / 100)
+        }
+    })
+
+    autoUpdater.on('update-downloaded', async () => {
+        if (widgetWin && !widgetWin.isDestroyed()) widgetWin.setProgressBar(-1)
+        if (settingsWin && !settingsWin.isDestroyed()) settingsWin.setProgressBar(-1)
+        const { response } = await dialog.showMessageBox({
+            type: 'info',
+            title: '更新就绪',
+            message: '更新已下载完成',
+            detail: '是否立即重启并安装更新？',
+            buttons: ['立即重启', '稍后'],
+            defaultId: 0,
+            cancelId: 1
+        })
+        if (response === 0) {
+            quitting = true
+            autoUpdater.quitAndInstall()
+        }
+    })
+
+    autoUpdater.on('error', () => {
+        if (widgetWin && !widgetWin.isDestroyed()) widgetWin.setProgressBar(-1)
+        if (settingsWin && !settingsWin.isDestroyed()) settingsWin.setProgressBar(-1)
+    })
 }
 
 const createSettingsWindow = () => {
@@ -186,6 +248,10 @@ const createTray = () => {
                 else widgetWin.show()
             }
         },
+        {
+            label: '检查更新',
+            click: () => checkForUpdates()
+        },
         { type: 'separator' },
         {
             label: '退出',
@@ -241,9 +307,26 @@ const getCpuUsage = () => {
     if (dTotal <= 0) return 0
     return Math.max(0, Math.min(100, Math.round((1 - dIdle / dTotal) * 100)))
 }
-ipcMain.handle('stats:get', () => ({
+
+let cachedTemp = 0
+let lastTempTime = 0
+const getCpuTemp = async () => {
+    const now = Date.now()
+    if (now - lastTempTime < 10000) return cachedTemp
+    lastTempTime = now
+    try {
+        const temp = await si.cpuTemperature()
+        cachedTemp = Math.round(temp.main || 0)
+    } catch {
+        cachedTemp = 0
+    }
+    return cachedTemp
+}
+
+ipcMain.handle('stats:get', async () => ({
     cpu: getCpuUsage(),
-    mem: Math.round((1 - os.freemem() / os.totalmem()) * 100)
+    mem: Math.round((1 - os.freemem() / os.totalmem()) * 100),
+    temp: await getCpuTemp()
 }))
 
 app.whenReady().then(() => {
@@ -258,6 +341,7 @@ app.whenReady().then(() => {
     createSettingsWindow()
     createWidgetWindow()
     createTray()
+    setTimeout(() => checkForUpdates(), 5000)
     app.on('activate', () => {
         settingsWin.show()
     })
