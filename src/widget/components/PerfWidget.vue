@@ -36,9 +36,9 @@ const draw = () => {
     if (!canvas) return
     if (!ctx) ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    drawGauge(35, 38, 24, data.value.cpu / 100, 'CPU')
-    drawGauge(105, 38, 24, data.value.mem / 100, '内存')
-    drawGauge(175, 38, 24, Math.min(data.value.temp, 100) / 100, '温度', '°C')
+    drawGauge(40, 38, 22, data.value.cpu / 100, 'CPU')
+    drawGauge(105, 38, 22, data.value.mem / 100, '内存')
+    drawGauge(170, 38, 22, Math.min(data.value.temp, 100) / 100, '温度', '°C')
 }
 
 const refresh = async () => {
@@ -54,5 +54,5 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <canvas ref="canvasRef" width="210" height="80"></canvas>
+  <canvas ref="canvasRef" width="210" height="80" style="display:block"></canvas>
 </template>
