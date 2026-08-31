@@ -6,6 +6,7 @@ const si = require('systeminformation')
 const win32 = require('./win32')
 
 let autoUpdater = null
+let checkingFromSettings = false
 try {
     if (app.isPackaged) {
         autoUpdater = require('electron-updater').autoUpdater
@@ -96,28 +97,55 @@ const applyWidgetPosition = () => {
     widgetWin.setPosition(x, y)
 }
 
+const sendUpdateStatus = (status) => {
+    if (settingsWin && !settingsWin.isDestroyed()) {
+        settingsWin.webContents.send('update:status', status)
+    }
+}
+
 const checkForUpdates = () => {
-    if (!autoUpdater) return
-    autoUpdater.checkForUpdates().catch(() => {})
+    if (!autoUpdater) {
+        sendUpdateStatus({ type: 'error', message: '非打包版本，无法检查更新' })
+        return
+    }
+    sendUpdateStatus({ type: 'checking' })
+    autoUpdater.checkForUpdates().catch((err) => {
+        sendUpdateStatus({ type: 'error', message: err.message || '检查更新失败' })
+    })
 }
 
 if (autoUpdater) {
     autoUpdater.on('update-available', async (info) => {
-        const { response } = await dialog.showMessageBox({
-            type: 'info',
-            title: '检查更新',
-            message: `发现新版本 v${info.version}`,
-            detail: '是否立即下载更新？',
-            buttons: ['立即更新', '稍后'],
-            defaultId: 0,
-            cancelId: 1
+        sendUpdateStatus({
+            type: 'available',
+            version: info.version,
+            releaseDate: info.releaseDate,
+            releaseNotes: info.releaseNotes
         })
-        if (response === 0) {
+        if (!checkingFromSettings) {
+            const { response } = await dialog.showMessageBox({
+                type: 'info',
+                title: '检查更新',
+                message: `发现新版本 v${info.version}`,
+                detail: '是否立即下载更新？',
+                buttons: ['立即更新', '稍后'],
+                defaultId: 0,
+                cancelId: 1
+            })
+            if (response === 0) {
+                autoUpdater.downloadUpdate()
+            }
+        } else {
             autoUpdater.downloadUpdate()
         }
     })
 
     autoUpdater.on('download-progress', (info) => {
+        sendUpdateStatus({
+            type: 'downloading',
+            percent: Math.round(info.percent),
+            speed: info.bytesPerSecond ? (info.bytesPerSecond / 1024 / 1024).toFixed(1) : 0
+        })
         if (widgetWin && !widgetWin.isDestroyed()) {
             widgetWin.setProgressBar(info.percent / 100)
         }
@@ -127,26 +155,43 @@ if (autoUpdater) {
     })
 
     autoUpdater.on('update-downloaded', async () => {
+        sendUpdateStatus({ type: 'downloaded' })
         if (widgetWin && !widgetWin.isDestroyed()) widgetWin.setProgressBar(-1)
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.setProgressBar(-1)
-        const { response } = await dialog.showMessageBox({
-            type: 'info',
-            title: '更新就绪',
-            message: '更新已下载完成',
-            detail: '是否立即重启并安装更新？',
-            buttons: ['立即重启', '稍后'],
-            defaultId: 0,
-            cancelId: 1
-        })
-        if (response === 0) {
-            quitting = true
-            autoUpdater.quitAndInstall()
+        if (!checkingFromSettings) {
+            const { response } = await dialog.showMessageBox({
+                type: 'info',
+                title: '更新就绪',
+                message: '更新已下载完成',
+                detail: '是否立即重启并安装更新？',
+                buttons: ['立即重启', '稍后'],
+                defaultId: 0,
+                cancelId: 1
+            })
+            if (response === 0) {
+                quitting = true
+                autoUpdater.quitAndInstall()
+            }
         }
+        checkingFromSettings = false
     })
 
-    autoUpdater.on('error', () => {
+    autoUpdater.on('update-not-available', () => {
+        sendUpdateStatus({ type: 'not-available' })
+        dialog.showMessageBox({
+            type: 'info',
+            title: '检查更新',
+            message: '当前已是最新版本',
+            buttons: ['确定']
+        })
+        checkingFromSettings = false
+    })
+
+    autoUpdater.on('error', (err) => {
+        sendUpdateStatus({ type: 'error', message: err.message || '检查更新失败' })
         if (widgetWin && !widgetWin.isDestroyed()) widgetWin.setProgressBar(-1)
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.setProgressBar(-1)
+        checkingFromSettings = false
     })
 }
 
@@ -328,6 +373,18 @@ ipcMain.handle('stats:get', async () => ({
     mem: Math.round((1 - os.freemem() / os.totalmem()) * 100),
     temp: await getCpuTemp()
 }))
+
+ipcMain.handle('update:check', () => {
+    checkingFromSettings = true
+    checkForUpdates()
+})
+
+ipcMain.handle('update:install', () => {
+    if (autoUpdater) {
+        quitting = true
+        autoUpdater.quitAndInstall()
+    }
+})
 
 app.whenReady().then(() => {
     session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {

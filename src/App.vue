@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 const apiKey = ref('')
 const position = ref('center')
@@ -8,6 +8,8 @@ const saving = ref(false)
 const autostart = ref(false)
 const spectrumStyle = ref('bars')
 const comp = ref({ clock: true, date: true, week: true, weather: true, spectrum: true, perf: true })
+const updateStatus = ref(null)
+const checking = ref(false)
 const components = [
     { key: 'clock', label: '时钟' },
     { key: 'date', label: '日期' },
@@ -24,6 +26,16 @@ onMounted(async () => {
     autostart.value = await window.api?.getAutoStart() || false
     spectrumStyle.value = config?.spectrumStyle || 'bars'
     comp.value = { ...comp.value, ...(config?.components || {}) }
+    window.api?.onUpdateStatus((status) => {
+        updateStatus.value = status
+        if (status.type !== 'checking' && status.type !== 'downloading') {
+            checking.value = false
+        }
+    })
+})
+
+onUnmounted(() => {
+    // cleanup listener handled by electron
 })
 
 const save = async () => {
@@ -58,6 +70,16 @@ const flashSaved = () => {
     saved.value = true
     setTimeout(() => { saved.value = false }, 2000)
 }
+
+const checkUpdate = () => {
+    checking.value = true
+    updateStatus.value = null
+    window.api?.checkUpdate()
+}
+
+const installUpdate = () => {
+    window.api?.installUpdate()
+}
 </script>
 
 <template>
@@ -85,6 +107,34 @@ const flashSaved = () => {
       <div class="comp-row">
         <span class="comp-name">开机自启动</span>
         <button class="toggle" :class="{ on: autostart }" @click="toggleAutoStart"></button>
+      </div>
+    </div>
+    <div class="group">
+      <h2>更新</h2>
+      <div class="comp-row">
+        <button @click="checkUpdate" :disabled="checking">
+          {{ checking ? '检查中…' : '检查更新' }}
+        </button>
+        <button v-if="updateStatus?.type === 'downloaded'" @click="installUpdate" class="primary">
+          立即重启安装
+        </button>
+      </div>
+      <div v-if="updateStatus" class="update-log">
+        <p v-if="updateStatus.type === 'checking'" class="log-item">正在检查更新…</p>
+        <p v-if="updateStatus.type === 'available'" class="log-item">
+          发现新版本 v{{ updateStatus.version }}
+          <span v-if="updateStatus.releaseDate" class="log-sub">
+            ({{ new Date(updateStatus.releaseDate).toLocaleDateString() }})
+          </span>
+        </p>
+        <p v-if="updateStatus.type === 'not-available'" class="log-item">已是最新版本</p>
+        <p v-if="updateStatus.type === 'downloading'" class="log-item">
+          正在下载… {{ updateStatus.percent }}%
+          <span v-if="updateStatus.speed > 0" class="log-sub">{{ updateStatus.speed }} MB/s</span>
+        </p>
+        <p v-if="updateStatus.type === 'downloaded'" class="log-item ok">更新已下载，点击重启安装</p>
+        <p v-if="updateStatus.type === 'error'" class="log-item err">{{ updateStatus.message }}</p>
+        <p v-if="updateStatus.releaseNotes" class="log-notes">{{ updateStatus.releaseNotes }}</p>
       </div>
     </div>
     <div class="group">
@@ -263,5 +313,48 @@ h2 {
   margin: 0;
   font-size: 12px;
   color: #4ade80;
+}
+
+.primary {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.primary:hover {
+  background: #2563eb;
+}
+
+.update-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.log-item {
+  margin: 0;
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.log-item.err {
+  color: #f87171;
+}
+
+.log-item.ok {
+  color: #4ade80;
+}
+
+.log-sub {
+  color: #6b7280;
+}
+
+.log-notes {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: pre-wrap;
+  max-height: 80px;
+  overflow-y: auto;
 }
 </style>

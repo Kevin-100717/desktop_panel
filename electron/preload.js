@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('api', {
     onWeather: (cb) => ipcRenderer.on('weather:update', (_e, data) => cb(data)),
     getAutoStart: () => ipcRenderer.invoke('autostart:get'),
     setAutoStart: (enabled) => ipcRenderer.invoke('autostart:set', enabled),
-    getStats: () => ipcRenderer.invoke('stats:get')
+    getStats: () => ipcRenderer.invoke('stats:get'),
+    checkUpdate: () => ipcRenderer.invoke('update:check'),
+    installUpdate: () => ipcRenderer.invoke('update:install'),
+    onUpdateStatus: (cb) => ipcRenderer.on('update:status', (_e, status) => cb(status))
 })
