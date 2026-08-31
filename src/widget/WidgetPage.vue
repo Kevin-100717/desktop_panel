@@ -68,6 +68,7 @@ onMounted(async () => {
 .bottom-row {
   display: flex;
   align-items: center;
-  gap: 64px;
+  gap: 20px;
+  overflow: visible;
 }
 </style>
